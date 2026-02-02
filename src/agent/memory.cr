@@ -108,7 +108,7 @@ module Crybot
 
         entries.select do |entry|
           # Extract timestamp from entry
-          if entry.match(/^(\[.*?\])/)
+          if entry.match(/^\[(.*?)\]/)
             timestamp_str = $1
             if timestamp = Time.parse(timestamp_str, "%Y-%m-%d %H:%M:%S", Time::Location::UTC)
               timestamp > cutoff_date
