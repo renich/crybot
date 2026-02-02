@@ -18,6 +18,7 @@ module Crybot
       @threads : Int32 = 4
       @piper_model : String? = nil
       @piper_path : String = "/usr/bin/piper-tts"
+      @conversational_timeout : Int32 = 3 # seconds
 
       def initialize(@agent_loop : Loop)
         @config = Config::Loader.load
@@ -31,6 +32,7 @@ module Crybot
           @threads = voice_config.threads || 4
           @piper_model = voice_config.piper_model
           @piper_path = voice_config.piper_path || "/usr/bin/piper-tts"
+          @conversational_timeout = voice_config.conversational_timeout || 3
         end
 
         # Find whisper-stream if not configured
@@ -53,6 +55,21 @@ module Crybot
         # Start whisper-stream process
         process = start_whisper_stream
 
+        # Conversational mode: after a response, listen for follow-ups
+        conversational_mode = false
+        last_response_time = Time.unix(0)
+
+        # Spawn a fiber to manage conversational timeout
+        spawn do
+          while @running
+            sleep 1.second
+            if conversational_mode && (Time.utc - last_response_time) > @conversational_timeout.seconds
+              conversational_mode = false
+              puts "--- [Conversational window closed, say '#{@wake_word}' to activate]"
+            end
+          end
+        end
+
         begin
           process.output.each_line do |line|
             break unless @running
@@ -63,13 +80,24 @@ module Crybot
             # whisper-stream outputs transcriptions
             puts "[Heard: #{line}]"
 
-            if contains_wake_word?(line)
+            if conversational_mode
+              # In conversational mode, treat everything as a command
+              puts "[Conversational mode: #{line}]"
+
+              unless line.empty?
+                process_command(line)
+                last_response_time = Time.utc # Reset timeout after response
+              end
+            elsif contains_wake_word?(line)
               # Wake word detected! Extract command from same line
               clean_command = extract_command(line)
               puts "[Wake word detected! Command: #{clean_command}]"
 
               unless clean_command.empty?
                 process_command(clean_command)
+                conversational_mode = true
+                last_response_time = Time.utc
+                puts "--- [Conversational window open (#{@conversational_timeout}s)]"
               end
 
               puts "--- Listening for wake word..."

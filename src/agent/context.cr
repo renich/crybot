@@ -88,7 +88,8 @@ module Crybot
         <<-TEXT
         # Identity
 
-        You are Crybot, a personal AI assistant built in Crystal.
+        You are a helpful AI assistant. Your users may call you by various names - that's fine.
+        You are running as part of Crybot, a Crystal-based personal AI system.
 
         **Current Time:** #{now.to_s("%Y-%m-%d %H:%M:%S %Z")}
 
