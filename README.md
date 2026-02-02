@@ -135,13 +135,23 @@ Get a bot token from [@BotFather](https://t.me/BotFather) on Telegram.
 
 ## Built-in Tools
 
+### File Operations
 - `read_file` - Read file contents
 - `write_file` - Write/create files
 - `edit_file` - Edit files (find and replace)
 - `list_dir` - List directory contents
+
+### System & Web
 - `exec` - Execute shell commands
 - `web_search` - Search the web (Brave Search API)
 - `web_fetch` - Fetch and read web pages
+
+### Memory Management
+- `save_memory` - Save important information to long-term memory (MEMORY.md)
+- `search_memory` - Search long-term memory and daily logs for information
+- `list_recent_memories` - List recent memory entries from daily logs
+- `record_memory` - Record events or observations to the daily log
+- `memory_stats` - Get statistics about memory usage
 
 ## MCP Integration
 

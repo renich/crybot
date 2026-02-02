@@ -10,6 +10,7 @@ require "./tools/registry"
 require "./tools/filesystem"
 require "./tools/shell"
 require "./tools/web"
+require "./tools/memory"
 require "../session/manager"
 require "../mcp/manager"
 
@@ -152,6 +153,13 @@ module Crybot
         Tools::Registry.register(Tools::ExecTool.new)
         Tools::Registry.register(Tools::WebSearchTool.new)
         Tools::Registry.register(Tools::WebFetchTool.new)
+
+        # Memory tools
+        Tools::Registry.register(Tools::SaveMemoryTool.new)
+        Tools::Registry.register(Tools::SearchMemoryTool.new)
+        Tools::Registry.register(Tools::ListRecentMemoriesTool.new)
+        Tools::Registry.register(Tools::RecordMemoryTool.new)
+        Tools::Registry.register(Tools::MemoryStatsTool.new)
       end
     end
   end
