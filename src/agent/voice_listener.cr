@@ -16,6 +16,8 @@ module Crybot
       @model_path : String?
       @language : String = "en"
       @threads : Int32 = 4
+      @piper_model : String? = nil
+      @piper_path : String = "/usr/bin/piper-tts"
 
       def initialize(@agent_loop : Loop)
         @config = Config::Loader.load
@@ -27,6 +29,8 @@ module Crybot
           @model_path = voice_config.model_path
           @language = voice_config.language || "en"
           @threads = voice_config.threads || 4
+          @piper_model = voice_config.piper_model
+          @piper_path = voice_config.piper_path || "/usr/bin/piper-tts"
         end
 
         # Find whisper-stream if not configured
@@ -174,15 +178,70 @@ module Crybot
         # Clean up text for speech (remove markdown, code blocks, etc.)
         clean_text = clean_for_speech(text)
 
-        # Write to temp file and have festival read it
-        temp_file = File.join(Dir.tempdir, "crybot_tts_#{Process.pid}.txt")
-        File.write(temp_file, clean_text)
+        # Skip if empty
+        return if clean_text.empty?
 
-        Process.run("festival", ["--tts", temp_file], output: Process::Redirect::Inherit, error: Process::Redirect::Inherit)
-        File.delete(temp_file)
+        # Check if piper is available
+        if model = @piper_model
+          if File.info?(@piper_path) && File.info(@piper_path).permissions.includes?(File::Permissions::OwnerExecute)
+            speak_with_piper(clean_text, model)
+          else
+            speak_with_festival(clean_text)
+          end
+        else
+          speak_with_festival(clean_text)
+        end
       rescue e : Exception
         # Don't fail if TTS doesn't work
         puts "[TTS Error: #{e.message}]"
+      end
+
+      private def speak_with_piper(text : String, model : String) : Nil
+        # Generate WAV file with piper
+        wav_file = File.join(Dir.tempdir, "crybot_tts_#{Process.pid}_#{Time.utc.to_unix_ms}.wav")
+
+        Process.run(
+          @piper_path,
+          ["-m", model, "-o", wav_file],
+          input: IO::Memory.new(text),
+          output: Process::Redirect::Pipe,
+          error: Process::Redirect::Pipe
+        )
+
+        # Play the WAV file
+        if File.exists?(wav_file)
+          play_audio(wav_file)
+          File.delete(wav_file)
+        end
+      end
+
+      private def speak_with_festival(text : String) : Nil
+        # Write to temp file and have festival read it
+        temp_file = File.join(Dir.tempdir, "crybot_tts_#{Process.pid}.txt")
+        File.write(temp_file, text)
+
+        Process.run("festival", ["--tts", temp_file], output: Process::Redirect::Inherit, error: Process::Redirect::Inherit)
+        File.delete(temp_file)
+      end
+
+      private def play_audio(file_path : String) : Nil
+        # Try different audio players
+        players = [
+          {"paplay", [] of String},             # PulseAudio
+          {"aplay", [] of String},              # ALSA
+          {"ffplay", ["-nodisp", "-autoexit"]}, # ffmpeg
+          {"mpg123", [] of String},             # mp3 player (also plays wav)
+        ]
+
+        players.each do |(player, args)|
+          result = Process.run(
+            player,
+            args + [file_path],
+            output: Process::Redirect::Pipe,
+            error: Process::Redirect::Pipe
+          )
+          return if result.success?
+        end
       end
 
       private def clean_for_speech(text : String) : String

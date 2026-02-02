@@ -140,12 +140,24 @@ Voice-activated interaction using [whisper.cpp](https://github.com/ggerganov/whi
 - whisper-stream continuously transcribes audio to text
 - Crybot listens for the wake word (default: "crybot")
 - When detected, the command is extracted and sent to the agent
-- Response is both displayed and spoken aloud (using festival TTS)
+- Response is both displayed and spoken aloud
 - Press Ctrl+C to stop
 
 **TTS (Text-to-Speech):**
-Responses are spoken using [festival](https://www.cstr.ed.ac.uk/projects/festival/).
-Install on Arch: `pacman -S festival`
+Responses are spoken using [Piper](https://github.com/rhasspy/piper) (neural TTS) or festival as fallback.
+Install on Arch: `pacman -S piper-tts festival`
+
+**Voice Configuration** (optional, in `~/.crybot/config.yml`):
+```yaml
+voice:
+  wake_word: "hey assistant"           # Custom wake word
+  whisper_stream_path: "/usr/bin/whisper-stream"
+  model_path: "/path/to/ggml-base.en.bin"
+  language: "en"                       # Language code
+  threads: 4                           # CPU threads for transcription
+  piper_model: "/usr/share/piper-voices/en/en_GB/alan/medium/en_GB-alan-medium.onnx"  # Piper voice model
+  piper_path: "/usr/bin/piper-tts"     # Path to piper-tts binary
+```
 
 **Voice Configuration** (optional, in `~/.crybot/config.yml`):
 ```yaml

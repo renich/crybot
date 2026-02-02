@@ -152,8 +152,10 @@ module Crybot
       property model_path : String? = nil
       property language : String? = nil
       property threads : Int32? = nil
+      property piper_model : String? = nil
+      property piper_path : String? = nil
 
-      def initialize(@wake_word = nil, @whisper_stream_path = nil, @model_path = nil, @language = nil, @threads = nil)
+      def initialize(@wake_word = nil, @whisper_stream_path = nil, @model_path = nil, @language = nil, @threads = nil, @piper_model = nil, @piper_path = nil)
       end
     end
 
