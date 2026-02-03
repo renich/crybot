@@ -29,11 +29,12 @@ module Crybot
       end
 
       private def create_tls_context
-        # Use default context but ensure SNI is handled correctly if possible.
-        # Crystal's OpenSSL bindings should handle this.
-        # If we need to force it, we can create a context.
-        # For now, returning nil lets HTTP::Client create the default one.
-        nil
+        # Antigravity's proxy might require SNI or have a specific cert setup.
+        # We can try to be more lenient if it's a dev proxy, or stricter.
+        # Let's try to ensure SNI is set.
+        ctx = OpenSSL::SSL::Context::Client.new
+        # ctx.verify_mode = OpenSSL::SSL::VerifyMode::NONE # Uncomment if self-signed
+        ctx
       end
 
       private def endpoint_url : String
