@@ -48,6 +48,8 @@ module Crybot
       end
 
       def self.save
+        dir = File.dirname(ACCOUNTS_FILE)
+        Dir.mkdir_p(dir) unless Dir.exists?(dir)
         File.write(ACCOUNTS_FILE, @@accounts.to_json)
       end
 
