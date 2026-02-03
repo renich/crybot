@@ -2,6 +2,7 @@ require "./base"
 require "../auth/token_store"
 require "json"
 require "http/client"
+require "uuid"
 
 module Crybot
   module Providers
@@ -39,20 +40,29 @@ module Crybot
 
         request_body = build_request_body(messages, tools)
         
-        # Wrap the request body in a "request" object as expected by the internal endpoint
-        # The structure should be:
-        # {
-        #   "model": "...",
-        #   "project": "...",
-        #   "request": {
-        #     "contents": [...],
-        #     "generationConfig": {...}
-        #   }
-        # }
+        # Wrap the request body in Antigravity's expected format
+        # Reference: opencode-antigravity-auth/dist/src/plugin/request.js lines 1035-1050
+        # Required fields:
+        #   - project: GCP project ID
+        #   - model: actual model name (e.g., "gemini-3-pro-low")
+        #   - request: the Gemini-format request payload
+        #   - requestType: "agent" (routing field)
+        #   - userAgent: "antigravity" (client type identifier)
+        #   - requestId: unique request ID for tracking
+        request_id = "agent-#{UUID.random}"
+        session_id = "crybot-#{UUID.random}"
+        
+        # Add sessionId to the inner request for multi-turn signature caching
+        # Note: We need to modify the request_body Hash, so ensure it's modifiable
+        request_body["sessionId"] = JSON::Any.new(session_id)
+        
         body = {
-          "model"   => JSON::Any.new(actual_model),
-          "project" => JSON::Any.new(project_id),
-          "request" => JSON::Any.new(request_body)
+          "project"     => JSON::Any.new(project_id),
+          "model"       => JSON::Any.new(actual_model),
+          "request"     => JSON::Any.new(request_body),
+          "requestType" => JSON::Any.new("agent"),
+          "userAgent"   => JSON::Any.new("antigravity"),
+          "requestId"   => JSON::Any.new(request_id),
         }
 
         headers = HTTP::Headers{
@@ -69,7 +79,7 @@ module Crybot
         unless response.success?
           # If permission denied, try the default fallback project ID
           if response.status_code == 403 && project_id != "rising-fact-p41fc"
-            fallback_url = "#{API_ENDPOINT}/v1internal/projects/rising-fact-p41fc/locations/global/publishers/google/models/#{actual_model}:generateContent"
+            fallback_url = "#{API_ENDPOINT}/v1internal:generateContent"
             body["project"] = JSON::Any.new("rising-fact-p41fc")
             headers["X-Goog-User-Project"] = "rising-fact-p41fc"
             
@@ -130,7 +140,17 @@ module Crybot
       private def parse_response(body : String) : Response
         json = JSON.parse(body)
 
-        candidates = json["candidates"]?
+        # Antigravity API wraps responses: { "response": { "candidates": [...] } }
+        # Reference: opencode-antigravity-auth/dist/src/plugin/request-helpers.js
+        response_obj = json["response"]? || json
+        
+        # Handle array-wrapped responses (API sometimes returns arrays)
+        if response_obj.as_a?
+          first_obj = response_obj.as_a.first?
+          response_obj = first_obj if first_obj
+        end
+
+        candidates = response_obj["candidates"]?
         if candidates.nil? || !candidates.as_a? || candidates.as_a.empty?
           return Response.new(content: "Error: No candidates returned")
         end
