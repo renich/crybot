@@ -21,7 +21,7 @@ module Crybot
         actual_model = model || @default_model
 
         # Construct URL for generateChat (Cloud Code API)
-        url = "#{API_ENDPOINT}/v1/projects/#{project_id}/locations/global/publishers/google/models/#{actual_model}:generateContent"
+        url = "#{API_ENDPOINT}/v1internal/projects/#{project_id}/locations/global/publishers/google/models/#{actual_model}:generateContent"
 
         body = build_request_body(messages, tools)
 
