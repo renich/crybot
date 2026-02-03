@@ -227,13 +227,13 @@ module Crybot
       end
 
       def self.generate_verifier : String
-        Random::Secure.urlsafe_base64(32)
+        Random::Secure.urlsafe_base64(64)
       end
 
       def self.generate_challenge(verifier : String) : String
         digest = OpenSSL::Digest.new("SHA256")
         digest.update(verifier)
-        Base64.urlsafe_encode(digest.final)
+        Base64.urlsafe_encode(digest.final, padding: false)
       end
     end
   end
