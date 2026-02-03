@@ -68,7 +68,7 @@ module Crybot
         end
 
         body = {
-          "contents"         => JSON::Any.new(contents.map { |c| JSON::Any.new(c) }),
+          "contents"         => JSON::Any.new(contents.map { |content| JSON::Any.new(content) }),
           "generationConfig" => JSON::Any.new({
             "temperature"     => JSON::Any.new(0.7),
             "maxOutputTokens" => JSON::Any.new(8192),
@@ -77,7 +77,7 @@ module Crybot
 
         if system_instruction
           # Convert to JSON::Any structure
-          parts = system_instruction["parts"].map { |p| JSON::Any.new(p.transform_values { |v| JSON::Any.new(v) }) }
+          parts = system_instruction["parts"].map { |part| JSON::Any.new(part.transform_values { |val| JSON::Any.new(val) }) }
           body["systemInstruction"] = JSON::Any.new({"parts" => JSON::Any.new(parts)})
         end
 

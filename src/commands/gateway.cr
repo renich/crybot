@@ -68,43 +68,65 @@ module Crybot
         model = config.agents.defaults.model
         provider = detect_provider(model)
 
-        case provider
-        when "openai"
-          if config.providers.openai.api_key.empty?
-            puts "Error: OpenAI API key not configured."
-            puts "Please edit #{Config::Loader.config_file} and add your API key"
-            return false
-          end
-        when "anthropic"
-          if config.providers.anthropic.api_key.empty?
-            puts "Error: Anthropic API key not configured."
-            puts "Please edit #{Config::Loader.config_file} and add your API key"
-            return false
-          end
-        when "openrouter"
-          if config.providers.openrouter.api_key.empty?
-            puts "Error: OpenRouter API key not configured."
-            puts "Please edit #{Config::Loader.config_file} and add your API key"
-            return false
-          end
-        when "vllm"
-          if config.providers.vllm.api_base.empty?
-            puts "Error: vLLM api_base not configured."
-            puts "Please edit #{Config::Loader.config_file} and add api_base"
-            return false
-          end
-        when "antigravity", "gemini"
-          unless Crybot::Auth::TokenStore.has_accounts?
-            puts "Error: No Google accounts authenticated for #{provider}."
-            puts "Run 'crybot login' to authenticate."
-            return false
-          end
-        else # zhipu (default)
-          if config.providers.zhipu.api_key.empty?
-            puts "Error: z.ai API key not configured."
-            puts "Please edit #{Config::Loader.config_file} and add your API key"
-            return false
-          end
+        return check_openai_config(config) if provider == "openai"
+        return check_anthropic_config(config) if provider == "anthropic"
+        return check_openrouter_config(config) if provider == "openrouter"
+        return check_vllm_config(config) if provider == "vllm"
+        return check_google_auth_config(provider) if provider == "antigravity" || provider == "gemini"
+
+        check_zhipu_config(config)
+      end
+
+      private def check_openai_config(config) : Bool
+        if config.providers.openai.api_key.empty?
+          puts "Error: OpenAI API key not configured."
+          puts "Please edit #{Config::Loader.config_file} and add your API key"
+          return false
+        end
+        true
+      end
+
+      private def check_anthropic_config(config) : Bool
+        if config.providers.anthropic.api_key.empty?
+          puts "Error: Anthropic API key not configured."
+          puts "Please edit #{Config::Loader.config_file} and add your API key"
+          return false
+        end
+        true
+      end
+
+      private def check_openrouter_config(config) : Bool
+        if config.providers.openrouter.api_key.empty?
+          puts "Error: OpenRouter API key not configured."
+          puts "Please edit #{Config::Loader.config_file} and add your API key"
+          return false
+        end
+        true
+      end
+
+      private def check_vllm_config(config) : Bool
+        if config.providers.vllm.api_base.empty?
+          puts "Error: vLLM api_base not configured."
+          puts "Please edit #{Config::Loader.config_file} and add api_base"
+          return false
+        end
+        true
+      end
+
+      private def check_google_auth_config(provider) : Bool
+        unless Crybot::Auth::TokenStore.has_accounts?
+          puts "Error: No Google accounts authenticated for #{provider}."
+          puts "Run 'crybot login' to authenticate."
+          return false
+        end
+        true
+      end
+
+      private def check_zhipu_config(config) : Bool
+        if config.providers.zhipu.api_key.empty?
+          puts "Error: z.ai API key not configured."
+          puts "Please edit #{Config::Loader.config_file} and add your API key"
+          return false
         end
         true
       end
