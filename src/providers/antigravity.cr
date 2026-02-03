@@ -18,7 +18,21 @@ module Crybot
 
       def chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
         token, project_id = Auth::TokenStore.get_valid_token("antigravity")
-        actual_model = model || @default_model
+        
+        # Clean up model name
+        raw_model = model || @default_model
+        
+        # 1. Remove "antigravity-" prefix if present (including from "antigravity/antigravity-...")
+        clean_model = raw_model.split('/').last
+        clean_model = clean_model.gsub(/^antigravity-/, "")
+        
+        # 2. Add default tier suffix (-low) for gemini-3-pro if missing
+        # Reference: opencode-antigravity-auth model-resolver.ts lines 196-208
+        if clean_model.starts_with?("gemini-3-pro") && !clean_model.matches?(/-(low|medium|high)$/)
+          actual_model = "#{clean_model}-low"
+        else
+          actual_model = clean_model
+        end
 
         # Use the internal endpoint directly, passing model and project in the body
         url = "#{API_ENDPOINT}/v1internal:generateContent"
