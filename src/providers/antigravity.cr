@@ -16,30 +16,23 @@ module Crybot
       end
 
       def chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
-        max_retries = 3
-        # If we have multiple accounts, retry enough times to cover them all
-        # Auth::TokenStore.list (assuming it returns array) could be used, but for now we'll just bump the default
-        # to ensure we don't give up too early if multiple accounts are exhausted.
-        # But wait, TokenStore.get_valid_token rotates inside its own logic?
-        # No, get_valid_token returns the *next* account if failure_count sorting works.
-        # So we just need to loop enough times.
-
-        # Let's dynamically set retries based on account count if possible, or just pick a safer number.
-        retry_limit = [Auth::TokenStore.list.size * 2, 5].max
-
-        retry_limit.times do |attempt|
+        # Retry logic: try to cover all accounts if possible
+        account_count = [Auth::TokenStore.list.size, 1].max
+        max_retries = [account_count * 2, 5].max
+        
+        max_retries.times do |attempt|
           begin
             return attempt_chat(messages, tools, model)
           rescue e : Exception
             if retryable_error?(e)
-              puts "Rate limit/Auth error. Retrying (attempt #{attempt + 1}/#{retry_limit})..." if ENV["DEBUG"]?
+              puts "Rate limit/Auth error. Retrying (attempt #{attempt + 1}/#{max_retries})..." if ENV["DEBUG"]?
               sleep 1.seconds
               next
             end
             raise e
           end
         end
-        raise "Max retries exceeded for Antigravity API (tried #{retry_limit} times). All accounts may be exhausted."
+        raise "Max retries exceeded for Antigravity API (tried #{max_retries} times). All accounts may be exhausted."
       end
 
       private def attempt_chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
@@ -192,24 +185,16 @@ module Crybot
         root = root.as_a.first if root.as_a? && !root.as_a.empty?
 
         candidates = root["candidates"]?
-        unless candidates && candidates.as_a? && !candidates.as_a.empty?
-          raise "Error: No candidates returned"
-        end
+        raise "Error: No candidates returned" unless candidates && candidates.as_a? && !candidates.as_a.empty?
 
-        candidates_array = candidates.as_a
-        candidate = candidates_array[0]
-
-        content_parts = nil
-        if content = candidate["content"]?
-          content_parts = content["parts"]?
-        end
+        content_parts = candidates[0]["content"]?.try(&.["parts"]?)
         text_content = ""
         tool_calls = [] of ToolCall
 
         if content_parts.try(&.as_a?)
           content_parts.not_nil!.as_a.each do |part|
             text_content += part["text"].as_s if part["text"]?
-
+            
             if func = part["functionCall"]?
                name = func["name"].as_s
                args = func["args"].as_h
