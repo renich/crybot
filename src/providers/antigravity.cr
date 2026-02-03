@@ -20,10 +20,16 @@ module Crybot
         token, project_id = Auth::TokenStore.get_valid_token("antigravity")
         actual_model = model || @default_model
 
-        # Construct URL for generateChat (Cloud Code API)
-        url = "#{API_ENDPOINT}/v1internal/projects/#{project_id}/locations/global/publishers/google/models/#{actual_model}:generateContent"
+        # Use the internal endpoint directly, passing model and project in the body
+        url = "#{API_ENDPOINT}/v1internal:generateContent"
 
         body = build_request_body(messages, tools)
+        
+        # Inject model and project into the body
+        # Note: The gateway expects the model name to be passed in the body.
+        # We also pass the project ID.
+        body["model"] = JSON::Any.new(actual_model)
+        body["project"] = JSON::Any.new(project_id)
 
         headers = HTTP::Headers{
           "Content-Type"        => "application/json",
