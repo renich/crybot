@@ -4,22 +4,22 @@ Crybot is a personal AI assistant built in Crystal, inspired by nanobot (Python)
 
 ## Features
 
-- **Multiple LLM Support**: Supports OpenAI, Anthropic, OpenRouter, vLLM, and z.ai / Zhipu GLM models
-- **Provider Auto-Detection**: Automatically selects provider based on model name prefix
-- **Tool Calling**: Built-in tools for file operations, shell commands, and web search/fetch
-- **MCP Support**: Model Context Protocol client for connecting to external tools and resources
-- **Session Management**: Persistent conversation history with JSONL storage
-- **Telegram Integration**: Full Telegram bot support with message tracking and auto-restart on config changes
-- **Interactive REPL**: Fancyline-powered REPL with syntax highlighting, autocomplete, and history
-- **Workspace System**: Organized workspace with memory, skills, and bootstrap files
+- **Multiple LLM Support**: Supports OpenAI, Anthropic, OpenRouter, vLLM, z.ai (Zhipu), Antigravity, and Gemini models.
+- **Unified OAuth**: Native Google OAuth support for Antigravity and Gemini CLI models (no need for `gcloud` or external tools).
+- **Multi-Account Support**: Add multiple Google accounts for load balancing and increased quotas.
+- **Provider Auto-Detection**: Automatically selects provider based on model name prefix.
+- **Tool Calling**: Built-in tools for file operations, shell commands, and web search/fetch.
+- **MCP Support**: Model Context Protocol client for connecting to external tools and resources.
+- **Session Management**: Persistent conversation history with JSONL storage.
+- **Telegram Integration**: Full Telegram bot support with message tracking and auto-restart on config changes.
+- **Interactive REPL**: Fancyline-powered REPL with syntax highlighting, autocomplete, and history.
+- **Workspace System**: Organized workspace with memory, skills, and bootstrap files.
 
 ## Yes, it DOES work.
 
 It can even reconfigure itself.
 
 <img width="726" height="1276" alt="image" src="https://github.com/user-attachments/assets/5b8b7155-5c7a-4965-9aca-e2907f4ed641" />
-
-
 
 ## Installation
 
@@ -39,7 +39,19 @@ This creates:
 - Configuration file: `~/.crybot/config.yml`
 - Workspace directory: `~/.crybot/workspace/`
 
-Edit `~/.crybot/config.yml` to add your API keys:
+### Authentication (Google/Antigravity)
+
+Crybot includes a built-in login command that handles the OAuth flow for Antigravity and Gemini models. You can add multiple accounts to distribute load.
+
+```bash
+./bin/crybot login
+```
+
+This will open your browser to authenticate with Google. You can run this multiple times to add more accounts.
+
+### API Keys
+
+Edit `~/.crybot/config.yml` to add your API keys for other providers:
 
 ```yaml
 providers:
@@ -51,9 +63,11 @@ providers:
     api_key: "your_anthropic_key" # Get from https://console.anthropic.com/
   openrouter:
     api_key: "your_openrouter_key" # Get from https://openrouter.ai/
-  vllm:
-    api_key: ""                    # Often empty for local vLLM
-    api_base: "http://localhost:8000/v1"
+  antigravity:
+    api_base: "https://api.antigravity.ai/v1" # Usually static
+  gemini:
+    project_id: "your-project-id" # Fallback if not found via OAuth
+    location: "us-central1"
 ```
 
 ### Selecting a Model
@@ -64,18 +78,8 @@ Set the default model in your config:
 agents:
   defaults:
     model: "gpt-4o-mini"  # Uses OpenAI
-    # model: "claude-3-5-sonnet-20241022"  # Uses Anthropic
-    # model: "anthropic/claude-3.5-sonnet"  # Uses OpenRouter
-    # model: "glm-4.7-flash"  # Uses Zhipu (default)
-```
-
-Or use the `provider/model` format to explicitly specify:
-
-```yaml
-model: "openai/gpt-4o-mini"
-model: "anthropic/claude-3-5-sonnet-20241022"
-model: "openrouter/deepseek/deepseek-chat"
-model: "vllm/my-custom-model"
+    # model: "antigravity/antigravity-gemini-3-pro"  # Uses Antigravity
+    # model: "gemini/gemini-1.5-pro-002"  # Uses Gemini (Google Vertex AI)
 ```
 
 The provider is auto-detected from model name patterns:
@@ -83,6 +87,8 @@ The provider is auto-detected from model name patterns:
 - `claude-*` → Anthropic
 - `glm-*` → Zhipu
 - `deepseek-*`, `qwen-*` → OpenRouter
+- `antigravity*` → Antigravity
+- `gemini-*` → Gemini
 
 ## Usage
 
@@ -157,16 +163,6 @@ voice:
   threads: 4                           # CPU threads for transcription
   piper_model: "/usr/share/piper-voices/en/en_GB/alan/medium/en_GB-alan-medium.onnx"  # Piper voice model
   piper_path: "/usr/bin/piper-tts"     # Path to piper-tts binary
-```
-
-**Voice Configuration** (optional, in `~/.crybot/config.yml`):
-```yaml
-voice:
-  wake_word: "hey assistant"           # Custom wake word
-  whisper_stream_path: "/usr/bin/whisper-stream"
-  model_path: "/path/to/ggml-base.en.bin"
-  language: "en"                       # Language code
-  threads: 4                           # CPU threads for transcription
 ```
 
 ### Telegram Gateway
@@ -283,6 +279,11 @@ ameba --fix
 Build:
 ```bash
 shards build
+```
+
+Run tests:
+```bash
+crystal spec
 ```
 
 ## License

@@ -36,9 +36,8 @@ module Crybot
         end
 
         # Find whisper-stream if not configured
-        unless File.info?(@whisper_stream_path) && File.info(@whisper_stream_path).permissions.includes?(File::Permissions::OwnerExecute)
-          @whisper_stream_path = find_whisper_stream
-        end
+        return if File.info?(@whisper_stream_path) && File.info(@whisper_stream_path).permissions.includes?(File::Permissions::OwnerExecute)
+        @whisper_stream_path = find_whisper_stream
       end
 
       def start : Nil

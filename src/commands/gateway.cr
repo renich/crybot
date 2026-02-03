@@ -19,7 +19,7 @@ module Crybot
         return unless validate_config(config)
 
         # Start config watcher before starting channels
-        watcher = Config::Watcher.new(Config::Loader.config_file, ->{ restart })
+        watcher = Config::Watcher.new(Config::Loader.config_file, -> { restart })
         @watcher = watcher
         watcher.start
 
@@ -33,6 +33,23 @@ module Crybot
 
       private def validate_config(config : Config::ConfigFile) : Bool
         # Check if any channels are enabled
+        return false unless check_channels_enabled(config)
+
+        # Check API key based on model
+        return false unless check_provider_config(config)
+
+        # Check Telegram token
+        if config.channels.telegram.enabled && config.channels.telegram.token.empty?
+          puts "Error: Telegram enabled but token not configured."
+          puts "Please edit #{Config::Loader.config_file} and add your bot token"
+          puts "\nGet a bot token from @BotFather on Telegram"
+          return false
+        end
+
+        true
+      end
+
+      private def check_channels_enabled(config) : Bool
         unless config.channels.telegram.enabled
           puts "Error: No channels enabled."
           puts "Enable channels in #{Config::Loader.config_file}"
@@ -44,8 +61,10 @@ module Crybot
           puts "      allow_from: [\"123456789\"]  # Optional: restrict to specific users"
           return false
         end
+        true
+      end
 
-        # Check API key based on model
+      private def check_provider_config(config) : Bool
         model = config.agents.defaults.model
         provider = detect_provider(model)
 
@@ -81,15 +100,6 @@ module Crybot
             return false
           end
         end
-
-        # Check Telegram token
-        if config.channels.telegram.enabled && config.channels.telegram.token.empty?
-          puts "Error: Telegram enabled but token not configured."
-          puts "Please edit #{Config::Loader.config_file} and add your bot token"
-          puts "\nGet a bot token from @BotFather on Telegram"
-          return false
-        end
-
         true
       end
 

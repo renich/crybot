@@ -5,6 +5,8 @@ require "../providers/openai"
 require "../providers/anthropic"
 require "../providers/openrouter"
 require "../providers/vllm"
+require "../providers/antigravity"
+require "../providers/gemini"
 require "./context"
 require "./tools/registry"
 require "./tools/filesystem"
@@ -39,34 +41,63 @@ module Crybot
 
       private def create_provider : Providers::LLMProvider
         model = @config.agents.defaults.model
-
-        # Detect provider from model name prefix
-        # Format: provider/model or just model (defaults to zhipu)
         provider_name, actual_model = parse_model_string(model)
 
         case provider_name
-        when "openai", "gpt"
-          api_key = @config.providers.openai.api_key
-          raise "OpenAI API key not configured" if api_key.empty?
-          Providers::OpenAIProvider.new(api_key, actual_model)
-        when "anthropic", "claude"
-          api_key = @config.providers.anthropic.api_key
-          raise "Anthropic API key not configured" if api_key.empty?
-          Providers::AnthropicProvider.new(api_key, actual_model)
-        when "openrouter"
-          api_key = @config.providers.openrouter.api_key
-          raise "OpenRouter API key not configured" if api_key.empty?
-          Providers::OpenRouterProvider.new(api_key, actual_model)
-        when "vllm"
-          api_base = @config.providers.vllm.api_base
-          raise "vLLM api_base not configured" if api_base.empty?
-          Providers::VLLMProvider.new(@config.providers.vllm.api_key, api_base, actual_model)
-        else
-          # Default to Zhipu
-          api_key = @config.providers.zhipu.api_key
-          raise "Zhipu API key not configured" if api_key.empty?
-          Providers::ZhipuProvider.new(api_key, actual_model)
+        when "openai", "gpt"       then create_openai(actual_model)
+        when "anthropic", "claude" then create_anthropic(actual_model)
+        when "openrouter"          then create_openrouter(actual_model)
+        when "vllm"                then create_vllm(actual_model)
+        when "antigravity"         then create_antigravity(actual_model)
+        when "gemini"              then create_gemini(actual_model)
+        else                            create_zhipu(actual_model)
         end
+      end
+
+      private def create_openai(model : String)
+        api_key = @config.providers.openai.api_key
+        raise "OpenAI API key not configured" if api_key.empty?
+        Providers::OpenAIProvider.new(api_key, model)
+      end
+
+      private def create_anthropic(model : String)
+        api_key = @config.providers.anthropic.api_key
+        raise "Anthropic API key not configured" if api_key.empty?
+        Providers::AnthropicProvider.new(api_key, model)
+      end
+
+      private def create_openrouter(model : String)
+        api_key = @config.providers.openrouter.api_key
+        raise "OpenRouter API key not configured" if api_key.empty?
+        Providers::OpenRouterProvider.new(api_key, model)
+      end
+
+      private def create_vllm(model : String)
+        api_base = @config.providers.vllm.api_base
+        raise "vLLM api_base not configured" if api_base.empty?
+        Providers::VLLMProvider.new(@config.providers.vllm.api_key, api_base, model)
+      end
+
+      private def create_antigravity(model : String)
+        api_base = @config.providers.antigravity.api_base
+        raise "Antigravity api_base not configured" if api_base.empty?
+        Providers::AntigravityProvider.new(@config.providers.antigravity.api_key, api_base, model)
+      end
+
+      private def create_gemini(model : String)
+        project_id = @config.providers.gemini.project_id
+        location = @config.providers.gemini.location
+        auth_command = @config.providers.gemini.auth_command
+
+        raise "Gemini project_id not configured" if project_id.empty?
+
+        Providers::GeminiProvider.new(project_id, location, auth_command, model)
+      end
+
+      private def create_zhipu(model : String)
+        api_key = @config.providers.zhipu.api_key
+        raise "Zhipu API key not configured" if api_key.empty?
+        Providers::ZhipuProvider.new(api_key, model)
       end
 
       private def parse_model_string(model : String) : Tuple(String, String)
@@ -82,12 +113,14 @@ module Crybot
 
       private def detect_provider_from_model(model : String) : String
         case model
-        when /^gpt-/      then "openai"
-        when /^claude-/   then "anthropic"
-        when /^glm-/      then "zhipu"
-        when /^deepseek-/ then "openrouter"
-        when /^qwen-/     then "openrouter"
-        else                   "zhipu"
+        when /^gpt-/        then "openai"
+        when /^claude-/     then "anthropic"
+        when /^glm-/        then "zhipu"
+        when /^deepseek-/   then "openrouter"
+        when /^qwen-/       then "openrouter"
+        when /^antigravity/ then "antigravity"
+        when /^gemini-/     then "gemini"
+        else                     "zhipu"
         end
       end
 

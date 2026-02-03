@@ -76,56 +76,7 @@ module Crybot
 
         begin
           while @running
-            begin
-              input = @fancy.readline(prompt_string)
-
-              if input.nil?
-                # Ctrl+D pressed
-                puts ""
-                break
-              end
-
-              input = input.to_s.strip
-              next if input.empty?
-
-              # Handle built-in commands
-              if handle_command(input)
-                next
-              end
-
-              # Process the message
-              print "Thinking..."
-
-              begin
-                response = @agent_loop.process(@session_key, input)
-                print "\r" + " " * 20 + "\r" # Clear the "Thinking..." message
-
-                # Print response with formatting
-                puts
-                puts response
-                puts
-              rescue e : Fancyline::Interrupt
-                # Ctrl+C pressed during input
-                puts ""
-                puts "Use 'quit' or 'exit' to exit, or Ctrl+D"
-                puts
-              rescue e : Exception
-                puts ""
-                puts "Error: #{e.message}"
-                puts e.backtrace.join("\n") if ENV["DEBUG"]?
-                puts
-              end
-            rescue e : Fancyline::Interrupt
-              # Ctrl+C pressed during input
-              puts ""
-              puts "Use 'quit' or 'exit' to exit, or Ctrl+D"
-              puts
-            rescue e : Exception
-              puts ""
-              puts "Error: #{e.message}"
-              puts e.backtrace.join("\n") if ENV["DEBUG"]?
-              puts
-            end
+            process_input_loop
           end
 
           # Save history before exiting
@@ -133,6 +84,60 @@ module Crybot
         ensure
           puts "Goodbye!"
         end
+      end
+
+      private def process_input_loop
+        input = @fancy.readline(prompt_string)
+
+        if input.nil?
+          # Ctrl+D pressed
+          puts ""
+          @running = false
+          return
+        end
+
+        input = input.to_s.strip
+        return if input.empty?
+
+        # Handle built-in commands
+        if handle_command(input)
+          return
+        end
+
+        # Process the message
+        print "Thinking..."
+
+        process_agent_response(input)
+      rescue e : Fancyline::Interrupt
+        # Ctrl+C pressed during input
+        puts ""
+        puts "Use 'quit' or 'exit' to exit, or Ctrl+D"
+        puts
+      rescue e : Exception
+        puts ""
+        puts "Error: #{e.message}"
+        puts e.backtrace.join("\n") if ENV["DEBUG"]?
+        puts
+      end
+
+      private def process_agent_response(input)
+        response = @agent_loop.process(@session_key, input)
+        print "\r" + " " * 20 + "\r" # Clear the "Thinking..." message
+
+        # Print response with formatting
+        puts
+        puts response
+        puts
+      rescue e : Fancyline::Interrupt
+        # Ctrl+C pressed during input
+        puts ""
+        puts "Use 'quit' or 'exit' to exit, or Ctrl+D"
+        puts
+      rescue e : Exception
+        puts ""
+        puts "Error: #{e.message}"
+        puts e.backtrace.join("\n") if ENV["DEBUG"]?
+        puts
       end
 
       private def setup_display : Nil
@@ -222,14 +227,13 @@ module Crybot
 
       private def load_history : Nil
         hist_file = history_file
-        if File.exists?(hist_file)
-          begin
-            File.open(hist_file, "r") do |io|
-              @fancy.history.load(io)
-            end
-          rescue e : Exception
-            # Ignore history loading errors
+        return unless File.exists?(hist_file)
+        begin
+          File.open(hist_file, "r") do |io|
+            @fancy.history.load(io)
           end
+        rescue e : Exception
+          # Ignore history loading errors
         end
       end
 

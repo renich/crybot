@@ -7,6 +7,7 @@ Crybot - Crystal-based Personal AI Assistant
 
 Usage:
   crybot onboard
+  crybot login
   crybot agent [-m <message>]
   crybot repl
   crybot voice
@@ -20,6 +21,7 @@ Options:
 
 Commands:
   onboard    Initialize configuration and workspace
+  login      Authenticate with Google for Antigravity/Gemini
   agent      Interact with the AI agent directly
   repl       Start an advanced REPL with line editing and history
   voice      Start voice-activated listener (requires whisper.cpp)
@@ -39,6 +41,7 @@ module Crybot
 
     begin
       onboard_val = args["onboard"]
+      login_val = args["login"]
       agent_val = args["agent"]
       repl_val = args["repl"]
       voice_val = args["voice"]
@@ -47,6 +50,8 @@ module Crybot
 
       if onboard_val.is_a?(Bool) && onboard_val
         Commands::Onboard.execute
+      elsif login_val.is_a?(Bool) && login_val
+        Commands::Login.execute
       elsif agent_val.is_a?(Bool) && agent_val
         message = args["-m"]
         message_str = message.is_a?(String) ? message : nil

@@ -87,6 +87,13 @@ module Crybot
           vllm:
             api_key: ""  # Often empty for local vLLM
             api_base: ""  # e.g., http://localhost:8000/v1
+          antigravity:
+            api_key: ""
+            api_base: "https://api.antigravity.ai/v1"
+          gemini:
+            project_id: ""
+            location: "us-central1"
+            auth_command: "gcloud auth print-access-token"
 
         channels:
           telegram:

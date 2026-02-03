@@ -45,18 +45,7 @@ module Crybot
             content = build_assistant_content(msg)
             user_messages << {"role" => JSON::Any.new("assistant"), "content" => content}
           when "tool"
-            # Anthropic uses tool_result type
-            tool_result_array = [
-              JSON::Any.new({
-                "type"        => JSON::Any.new("tool_result"),
-                "tool_use_id" => JSON::Any.new(msg.tool_call_id || ""),
-                "content"     => JSON::Any.new(msg.content || ""),
-              }),
-            ]
-            user_messages << {
-              "role"    => JSON::Any.new("user"),
-              "content" => JSON::Any.new(tool_result_array),
-            }
+            user_messages << build_tool_result_message(msg)
           end
         end
 
@@ -76,6 +65,21 @@ module Crybot
         end
 
         body
+      end
+
+      private def build_tool_result_message(msg : Message)
+        # Anthropic uses tool_result type
+        tool_result_array = [
+          JSON::Any.new({
+            "type"        => JSON::Any.new("tool_result"),
+            "tool_use_id" => JSON::Any.new(msg.tool_call_id || ""),
+            "content"     => JSON::Any.new(msg.content || ""),
+          }),
+        ]
+        {
+          "role"    => JSON::Any.new("user"),
+          "content" => JSON::Any.new(tool_result_array),
+        }
       end
 
       private def build_assistant_content(msg : Message) : JSON::Any

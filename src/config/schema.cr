@@ -25,6 +25,8 @@ module Crybot
       property anthropic : AnthropicConfig?
       property openrouter : OpenRouterConfig?
       property vllm : VLLMConfig?
+      property antigravity : AntigravityConfig?
+      property gemini : GeminiConfig?
 
       def zhipu : ZhipuConfig
         @zhipu ||= ZhipuConfig.new
@@ -44,6 +46,14 @@ module Crybot
 
       def vllm : VLLMConfig
         @vllm ||= VLLMConfig.new
+      end
+
+      def antigravity : AntigravityConfig
+        @antigravity ||= AntigravityConfig.new
+      end
+
+      def gemini : GeminiConfig
+        @gemini ||= GeminiConfig.new
       end
 
       struct ZhipuConfig
@@ -89,6 +99,28 @@ module Crybot
         property api_base : String = ""
 
         def initialize(@api_key = "", @api_base = "")
+        end
+      end
+
+      struct AntigravityConfig
+        include YAML::Serializable
+
+        property api_key : String = ""
+        property api_base : String = "https://api.antigravity.ai/v1"
+
+        def initialize(@api_key = "", @api_base = "https://api.antigravity.ai/v1")
+        end
+      end
+
+      struct GeminiConfig
+        include YAML::Serializable
+
+        property project_id : String = ""
+        property location : String = "us-central1"
+        property auth_command : String = "gcloud auth print-access-token"
+        property model : String = "gemini-1.5-pro-002"
+
+        def initialize(@project_id = "", @location = "us-central1", @auth_command = "gcloud auth print-access-token", @model = "gemini-1.5-pro-002")
         end
       end
     end

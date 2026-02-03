@@ -33,10 +33,9 @@ module Crybot
 
       def stop : Nil
         @running = false
-        if process = @process
-          process.terminate
-          @process = nil
-        end
+        return unless process = @process
+        process.terminate
+        @process = nil
       end
 
       def list_tools : Array(Tool)

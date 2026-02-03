@@ -96,8 +96,6 @@ module Crybot
       end
 
       private def handle_update(ctx : Tourmaline::Context) : Nil
-        start_time = Time.instant
-
         # Check if this update was already processed
         update_id = ctx.update.update_id
         if @processed_ids.includes?(update_id)
@@ -121,7 +119,13 @@ module Crybot
         text = message.text || message.caption || ""
         return if text.empty?
 
-        # Get chat info for logging
+        # Process the message
+        process_message(ctx, message, from_user, text)
+      end
+
+      private def process_message(ctx, message, from_user, text)
+        start_time = Time.instant
+        user_id = from_user.id
         chat_type = message.chat.type
         chat_title = message.chat.title || message.chat.first_name || "unknown"
 
@@ -137,7 +141,6 @@ module Crybot
           timestamp: Time.local,
         )
 
-        # Process the message
         begin
           puts "[#{Time.local.to_s("%H:%M:%S")}] Processing..."
           process_start = Time.instant

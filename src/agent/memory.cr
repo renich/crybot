@@ -176,9 +176,8 @@ module Crybot
         File.write(@memory_dir / "MEMORY.md", "")
         Dir.mkdir_p(@daily_log_dir)
 
-        if File.exists?(@current_log_file)
-          File.write(@current_log_file, "")
-        end
+        return unless File.exists?(@current_log_file)
+        File.write(@current_log_file, "")
       end
 
       private def ensure_directories : Nil
