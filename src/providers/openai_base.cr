@@ -19,13 +19,21 @@ module Crybot
 
         headers = build_headers
 
-        response = HTTP::Client.post(endpoint_url, headers, request_body.to_json)
+        response = HTTP::Client.post(endpoint_url, headers, request_body.to_json, tls: create_tls_context)
 
         unless response.success?
           raise "API request failed: #{response.status_code} - #{response.body}"
         end
 
         parse_response(response.body)
+      end
+
+      private def create_tls_context
+        # Use default context but ensure SNI is handled correctly if possible.
+        # Crystal's OpenSSL bindings should handle this.
+        # If we need to force it, we can create a context.
+        # For now, returning nil lets HTTP::Client create the default one.
+        nil
       end
 
       private def endpoint_url : String

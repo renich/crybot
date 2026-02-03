@@ -24,6 +24,41 @@ module Crybot
         }
         headers
       end
+
+      # Antigravity requires SNI. The "unrecognized name" error suggests the server (gateway)
+      # is strict about SNI matching the host.
+      # Crystal's HTTP::Client should handle this, but let's be explicit about the endpoint
+      # by ensuring we are hitting the correct hostname.
+      # The default config has https://api.antigravity.ai/v1.
+      #
+      # WAIT - Looking at the error "SSL_connect: error:0A000458:SSL routines::tlsv1 unrecognized name"
+      # This usually happens when connecting to an IP address with HTTPS, or when the server
+      # requires SNI and the client isn't sending it correctly for the specific host.
+      #
+      # Antigravity is actually a proxy. The URL "https://api.antigravity.ai/v1" might be correct,
+      # but let's double check if we need to set the hostname in TLS context.
+      #
+      # Actually, the reference implementation uses "https://daily-cloudcode-pa.sandbox.googleapis.com".
+      # The config in loader.cr was set to "https://api.antigravity.ai/v1" which might be wrong or a placeholder.
+      #
+      # Let's fix the default API base in the code to match the reference implementation
+      # if the user hasn't changed it.
+      #
+      # Reference:
+      # export const ANTIGRAVITY_ENDPOINT_DAILY = "https://daily-cloudcode-pa.sandbox.googleapis.com";
+      #
+      # If the config has the placeholder "https://api.antigravity.ai/v1", we should probably use the real one.
+      #
+      # Let's override endpoint_url to handle this.
+
+      private def endpoint_url : String
+        base = @api_base
+        # Fix placeholder if present
+        if base == "https://api.antigravity.ai/v1"
+          base = "https://daily-cloudcode-pa.sandbox.googleapis.com"
+        end
+        "#{base}/v1/chat/completions"
+      end
     end
   end
 end
