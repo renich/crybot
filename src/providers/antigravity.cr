@@ -18,7 +18,7 @@ module Crybot
       end
 
       def chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
-        # Retry loop for rate limits (429)
+        # Retry loop for rate limits (429) and auth errors
         max_retries = 3
         retry_count = 0
         
@@ -26,18 +26,35 @@ module Crybot
           begin
             return attempt_chat(messages, tools, model)
           rescue e : Exception
+            # Check for 429 Rate Limit
             if e.message && e.message.not_nil!.includes?("429")
               retry_count += 1
               if retry_count >= max_retries
                 raise e # Give up after max retries
               end
               
+              # Extract retry delay if available (basic implementation for now)
+              delay = 1.seconds
               puts "Rate limited (429). Switching account (attempt #{retry_count}/#{max_retries})..."
-              # The attempt_chat method records failure on 429, so next call gets a new token
-              sleep 1.seconds
-            else
-              raise e # Re-raise other errors
+              sleep delay
+              next
             end
+
+            # Check for 401/403 Auth Errors (invalid token/grant)
+            if e.message && (e.message.not_nil!.includes?("401") || e.message.not_nil!.includes?("403"))
+               # If it's an auth error, we should mark the account as failed and retry
+               # This handles "invalid_grant" cases where a token is revoked
+               retry_count += 1
+               if retry_count >= max_retries
+                 raise e
+               end
+               
+               puts "Auth error. Switching account (attempt #{retry_count}/#{max_retries})..."
+               sleep 1.seconds
+               next
+            end
+
+            raise e # Re-raise other errors
           end
         end
       end
@@ -48,39 +65,29 @@ module Crybot
         # Clean up model name
         raw_model = model || @default_model
         
-        # 1. Remove "antigravity-" prefix if present (including from "antigravity/antigravity-...")
+        # 1. Remove "antigravity-" prefix if present
         clean_model = raw_model.split('/').last
         clean_model = clean_model.gsub(/^antigravity-/, "")
         
         # 2. Add default tier suffix (-low) for gemini-3-pro if missing
-        # Reference: opencode-antigravity-auth model-resolver.ts lines 196-208
         if clean_model.starts_with?("gemini-3-pro") && !clean_model.matches?(/-(low|medium|high)$/)
           actual_model = "#{clean_model}-low"
         else
           actual_model = clean_model
         end
 
-        # Use the internal endpoint directly, passing model and project in the body
+        # Use the internal endpoint directly
         url = "#{API_ENDPOINT}/v1internal:generateContent"
 
         request_body = build_request_body(messages, tools)
         
-        # Wrap the request body in Antigravity's expected format
-        # Reference: opencode-antigravity-auth/dist/src/plugin/request.js lines 1035-1050
-        # Required fields:
-        #   - project: GCP project ID
-        #   - model: actual model name (e.g., "gemini-3-pro-low")
-        #   - request: the Gemini-format request payload
-        #   - requestType: "agent" (routing field)
-        #   - userAgent: "antigravity" (client type identifier)
-        #   - requestId: unique request ID for tracking
         request_id = "agent-#{UUID.random}"
         session_id = "crybot-#{UUID.random}"
         
-        # Add sessionId to the inner request for multi-turn signature caching
-        # Note: We need to modify the request_body Hash, so ensure it's modifiable
+        # Add sessionId to the inner request
         request_body["sessionId"] = JSON::Any.new(session_id)
         
+        # Wrap the request body in Antigravity's expected format
         body = {
           "project"     => JSON::Any.new(project_id),
           "model"       => JSON::Any.new(actual_model),
@@ -98,30 +105,25 @@ module Crybot
           "Client-Metadata"     => "{\"ideType\":\"IDE_UNSPECIFIED\",\"platform\":\"PLATFORM_UNSPECIFIED\",\"pluginType\":\"GEMINI\"}",
         }
 
-        # Do NOT set X-Goog-User-Project for Antigravity API
-        # The reference implementation does not set it, and setting it causes 403 USER_PROJECT_DENIED
-        # because the user likely doesn't have Service Usage Consumer permissions on the target project.
-        # The API likely handles quota attribution internally based on the "project" field in the body
-        # or the OAuth client ID.
-
         response = HTTP::Client.post(url, headers, body.to_json)
 
         unless response.success?
-          # Record failure if rate limited to rotate account next time
-          if response.status_code == 429
+          # Record failure if rate limited (429) OR auth failed (401/403)
+          if response.status_code == 429 || response.status_code == 401 || response.status_code == 403
              Auth::TokenStore.record_failure(email)
           end
 
-          # If permission denied, try the default fallback project ID
+          # If permission denied (403), try the default fallback project ID
+          # But ONLY if we haven't already recorded a failure/rotated (to avoid infinite fallback loops on bad accounts)
+          # Actually, we should try fallback FIRST before giving up on the account.
           if response.status_code == 403 && project_id != "rising-fact-p41fc"
             fallback_url = "#{API_ENDPOINT}/v1internal:generateContent"
             body["project"] = JSON::Any.new("rising-fact-p41fc")
-            # headers["X-Goog-User-Project"] = "rising-fact-p41fc" # REMOVED
             
             response = HTTP::Client.post(fallback_url, headers, body.to_json)
             
             unless response.success?
-              if response.status_code == 429
+              if response.status_code == 429 || response.status_code == 401 || response.status_code == 403
                  Auth::TokenStore.record_failure(email)
               end
               raise "Antigravity API request failed (fallback): #{response.status_code} - #{response.body}"
