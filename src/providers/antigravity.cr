@@ -23,13 +23,23 @@ module Crybot
         # Use the internal endpoint directly, passing model and project in the body
         url = "#{API_ENDPOINT}/v1internal:generateContent"
 
-        body = build_request_body(messages, tools)
+        request_body = build_request_body(messages, tools)
         
-        # Inject model and project into the body
-        # Note: The gateway expects the model name to be passed in the body.
-        # We also pass the project ID.
-        body["model"] = JSON::Any.new(actual_model)
-        body["project"] = JSON::Any.new(project_id)
+        # Wrap the request body in a "request" object as expected by the internal endpoint
+        # The structure should be:
+        # {
+        #   "model": "...",
+        #   "project": "...",
+        #   "request": {
+        #     "contents": [...],
+        #     "generationConfig": {...}
+        #   }
+        # }
+        body = {
+          "model"   => JSON::Any.new(actual_model),
+          "project" => JSON::Any.new(project_id),
+          "request" => JSON::Any.new(request_body)
+        }
 
         headers = HTTP::Headers{
           "Content-Type"        => "application/json",
