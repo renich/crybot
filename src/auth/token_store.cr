@@ -66,6 +66,11 @@ module Crybot
         @@accounts
       end
 
+      def self.has_accounts? : Bool
+        load
+        !@@accounts.empty?
+      end
+
       def self.get_valid_token(provider_type : String = "google") : Tuple(String, String)
         load
         raise "No accounts authenticated. Run 'crybot auth login' first." if @@accounts.empty?

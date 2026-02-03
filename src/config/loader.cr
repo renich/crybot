@@ -42,7 +42,9 @@ module Crybot
         return cached unless cached.nil?
 
         unless File.exists?(CONFIG_FILE)
-          raise "Config file not found: #{CONFIG_FILE}. Run 'crybot onboard' to initialize."
+          ensure_directories
+          create_default_config
+          puts "Created default configuration at #{CONFIG_FILE}"
         end
 
         content = File.read(CONFIG_FILE)

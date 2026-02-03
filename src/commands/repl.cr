@@ -22,13 +22,19 @@ module Crybot
                           !config.providers.openrouter.api_key.empty?
                         when "vllm"
                           !config.providers.vllm.api_base.empty?
+                        when "antigravity", "gemini"
+                          Crybot::Auth::TokenStore.has_accounts?
                         else # zhipu (default)
                           !config.providers.zhipu.api_key.empty?
                         end
 
         unless api_key_valid
-          puts "Error: API key not configured for provider '#{provider}'."
-          puts "Please edit #{Config::Loader.config_file} and add your API key"
+          puts "Error: API key or auth token not configured for provider '#{provider}'."
+          if provider == "antigravity" || provider == "gemini"
+            puts "Run 'crybot login' to authenticate with Google."
+          else
+            puts "Please edit #{Config::Loader.config_file} and add your API key"
+          end
           return
         end
 

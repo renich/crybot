@@ -93,6 +93,12 @@ module Crybot
             puts "Please edit #{Config::Loader.config_file} and add api_base"
             return false
           end
+        when "antigravity", "gemini"
+          unless Crybot::Auth::TokenStore.has_accounts?
+            puts "Error: No Google accounts authenticated for #{provider}."
+            puts "Run 'crybot login' to authenticate."
+            return false
+          end
         else # zhipu (default)
           if config.providers.zhipu.api_key.empty?
             puts "Error: z.ai API key not configured."
