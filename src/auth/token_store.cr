@@ -71,7 +71,18 @@ module Crybot
         !@@accounts.empty?
       end
 
-      def self.get_valid_token(provider_type : String = "google") : Tuple(String, String)
+      def self.record_failure(email : String?)
+        return unless email
+        load
+        account = @@accounts.find { |a| a.email == email }
+        return unless account
+
+        account.failure_count += 1
+        account.last_failure = Time.utc.to_unix
+        save
+      end
+
+      def self.get_valid_token(provider_type : String = "google") : Tuple(String, String, String)
         load
         raise "No accounts authenticated. Run 'crybot auth login' first." if @@accounts.empty?
 
@@ -84,7 +95,7 @@ module Crybot
         sorted_accounts.each do |account|
           begin
             token = ensure_valid_token(account)
-            return {token, account.project_id}
+            return {token, account.project_id, account.email}
           rescue e
             # Log failure and try next
             account.failure_count += 1

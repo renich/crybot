@@ -18,7 +18,32 @@ module Crybot
       end
 
       def chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
-        token, project_id = Auth::TokenStore.get_valid_token("antigravity")
+        # Retry loop for rate limits (429)
+        max_retries = 3
+        retry_count = 0
+        
+        loop do
+          begin
+            return attempt_chat(messages, tools, model)
+          rescue e : Exception
+            if e.message && e.message.not_nil!.includes?("429")
+              retry_count += 1
+              if retry_count >= max_retries
+                raise e # Give up after max retries
+              end
+              
+              puts "Rate limited (429). Switching account (attempt #{retry_count}/#{max_retries})..."
+              # The attempt_chat method records failure on 429, so next call gets a new token
+              sleep 1.seconds
+            else
+              raise e # Re-raise other errors
+            end
+          end
+        end
+      end
+
+      private def attempt_chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
+        token, project_id, email = Auth::TokenStore.get_valid_token("antigravity")
         
         # Clean up model name
         raw_model = model || @default_model
@@ -82,6 +107,11 @@ module Crybot
         response = HTTP::Client.post(url, headers, body.to_json)
 
         unless response.success?
+          # Record failure if rate limited to rotate account next time
+          if response.status_code == 429
+             Auth::TokenStore.record_failure(email)
+          end
+
           # If permission denied, try the default fallback project ID
           if response.status_code == 403 && project_id != "rising-fact-p41fc"
             fallback_url = "#{API_ENDPOINT}/v1internal:generateContent"
@@ -91,6 +121,9 @@ module Crybot
             response = HTTP::Client.post(fallback_url, headers, body.to_json)
             
             unless response.success?
+              if response.status_code == 429
+                 Auth::TokenStore.record_failure(email)
+              end
               raise "Antigravity API request failed (fallback): #{response.status_code} - #{response.body}"
             end
           else

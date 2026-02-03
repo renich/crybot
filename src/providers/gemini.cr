@@ -12,15 +12,40 @@ module Crybot
       end
 
       def chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
-        token, auth_project_id = Auth::TokenStore.get_valid_token("gemini")
+        # Retry loop for rate limits (429)
+        max_retries = 3
+        retry_count = 0
+        
+        loop do
+          begin
+            return attempt_chat(messages, tools, model)
+          rescue e : Exception
+            if e.message && e.message.not_nil!.includes?("429")
+              retry_count += 1
+              if retry_count >= max_retries
+                raise e # Give up after max retries
+              end
+              
+              puts "Rate limited (429). Switching account (attempt #{retry_count}/#{max_retries})..."
+              # The attempt_chat method records failure on 429, so next call gets a new token
+              sleep 1.seconds
+            else
+              raise e # Re-raise other errors
+            end
+          end
+        end
+      end
 
+      private def attempt_chat(messages : Array(Message), tools : Array(ToolDef)?, model : String?) : Response
+        token, auth_project_id, email = Auth::TokenStore.get_valid_token("gemini")
+        
         # Use project_id from auth if not explicitly configured (or if we want to support dynamic projects)
         # But keeping @project_id as fallback or primary if set might be better.
         # For now, let's use the authenticated project_id if available, as that's what the reference does.
         actual_project_id = auth_project_id.empty? ? @project_id : auth_project_id
-
+        
         actual_model = model || @default_model
-
+        
         # Determine if we should use the streamGenerateContent or generateContent endpoint
         # For now, we'll use generateContent (non-streaming) as the base implementation
         url = "https://#{@location}-aiplatform.googleapis.com/v1/projects/#{actual_project_id}/locations/#{@location}/publishers/google/models/#{actual_model}:generateContent"
@@ -36,6 +61,9 @@ module Crybot
         response = HTTP::Client.post(url, headers, body.to_json)
 
         unless response.success?
+          if response.status_code == 429
+             Auth::TokenStore.record_failure(email)
+          end
           raise "Gemini API request failed: #{response.status_code} - #{response.body}"
         end
 
