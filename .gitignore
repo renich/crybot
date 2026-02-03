@@ -26,3 +26,9 @@ Thumbs.db
 
 .claude/
 *.local.json
+
+# Generated binaries
+/crybot
+
+# Audio files
+*.wav
