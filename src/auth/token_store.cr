@@ -4,7 +4,7 @@ require "../config/loader"
 
 module Crybot
   module Auth
-    struct Account
+    class Account
       include JSON::Serializable
 
       property email : String
@@ -90,11 +90,19 @@ module Crybot
         # In future: implement load balancing logic here
 
         # Sort by failure count to try healthy accounts first
+        # Sort is stable, so if counts are equal, it preserves order.
+        # This causes sticky behavior if failure recording fails or isn't saved.
+        # Let's force a reload to be sure.
+        load 
         sorted_accounts = @@accounts.sort_by(&.failure_count)
+
+        # Debug: Print account selection order
+        # puts "DEBUG: Account selection order: #{sorted_accounts.map { |a| "#{a.email} (#{a.failure_count} failures)" }.join(", ")}"
 
         sorted_accounts.each do |account|
           begin
             token = ensure_valid_token(account)
+            puts "DEBUG: Selected account: #{account.email} (Project: #{account.project_id})" if ENV["DEBUG"]?
             return {token, account.project_id, account.email}
           rescue e
             # Log failure and try next
