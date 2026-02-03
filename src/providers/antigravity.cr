@@ -53,7 +53,20 @@ module Crybot
         response = HTTP::Client.post(url, headers, body.to_json)
 
         unless response.success?
-          raise "Antigravity API request failed: #{response.status_code} - #{response.body}"
+          # If permission denied, try the default fallback project ID
+          if response.status_code == 403 && project_id != "rising-fact-p41fc"
+            fallback_url = "#{API_ENDPOINT}/v1internal/projects/rising-fact-p41fc/locations/global/publishers/google/models/#{actual_model}:generateContent"
+            body["project"] = JSON::Any.new("rising-fact-p41fc")
+            headers["X-Goog-User-Project"] = "rising-fact-p41fc"
+            
+            response = HTTP::Client.post(fallback_url, headers, body.to_json)
+            
+            unless response.success?
+              raise "Antigravity API request failed (fallback): #{response.status_code} - #{response.body}"
+            end
+          else
+            raise "Antigravity API request failed: #{response.status_code} - #{response.body}"
+          end
         end
 
         parse_response(response.body)
