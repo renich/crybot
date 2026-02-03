@@ -68,11 +68,16 @@ module Crybot
         headers = HTTP::Headers{
           "Content-Type"        => "application/json",
           "Authorization"       => "Bearer #{token}",
-          "X-Goog-User-Project" => project_id,
           "User-Agent"          => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Antigravity/1.15.8 Chrome/138.0.7204.235 Electron/37.3.1 Safari/537.36",
           "X-Goog-Api-Client"   => "google-cloud-sdk vscode_cloudshelleditor/0.1",
           "Client-Metadata"     => "{\"ideType\":\"IDE_UNSPECIFIED\",\"platform\":\"PLATFORM_UNSPECIFIED\",\"pluginType\":\"GEMINI\"}",
         }
+
+        # Do NOT set X-Goog-User-Project for Antigravity API
+        # The reference implementation does not set it, and setting it causes 403 USER_PROJECT_DENIED
+        # because the user likely doesn't have Service Usage Consumer permissions on the target project.
+        # The API likely handles quota attribution internally based on the "project" field in the body
+        # or the OAuth client ID.
 
         response = HTTP::Client.post(url, headers, body.to_json)
 
@@ -81,7 +86,7 @@ module Crybot
           if response.status_code == 403 && project_id != "rising-fact-p41fc"
             fallback_url = "#{API_ENDPOINT}/v1internal:generateContent"
             body["project"] = JSON::Any.new("rising-fact-p41fc")
-            headers["X-Goog-User-Project"] = "rising-fact-p41fc"
+            # headers["X-Goog-User-Project"] = "rising-fact-p41fc" # REMOVED
             
             response = HTTP::Client.post(fallback_url, headers, body.to_json)
             
